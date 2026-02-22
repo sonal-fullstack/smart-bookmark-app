@@ -14,6 +14,11 @@ export default function DashboardPage() {
   const [url, setUrl] = useState("");
   const [bookmarks, setBookmarks] = useState<any[]>([]);
 
+  // ✅ NEW STATES FOR EDIT
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+
   // 🔐 Protect route & get user
   useEffect(() => {
     const checkUser = async () => {
@@ -60,7 +65,7 @@ export default function DashboardPage() {
     };
   }, [userId]);
 
-  // ➕ Add bookmark (instant UI update)
+  // ➕ Add bookmark
   const addBookmark = async () => {
     if (!title || !url || !userId) return;
 
@@ -75,16 +80,36 @@ export default function DashboardPage() {
       .single();
 
     if (!error && data) {
-      setBookmarks((prev) => [data, ...prev]); // instant UI update
+      setBookmarks((prev) => [data, ...prev]);
       setTitle("");
       setUrl("");
     }
   };
 
-  // ❌ Delete bookmark (instant UI update)
+  // ❌ Delete bookmark
   const deleteBookmark = async (id: string) => {
     await supabase.from("bookmarks").delete().eq("id", id);
     setBookmarks((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  // ✅ UPDATE BOOKMARK
+  const updateBookmark = async (id: string) => {
+    const { error } = await supabase
+      .from("bookmarks")
+      .update({
+        title: editTitle,
+        url: editUrl,
+      })
+      .eq("id", id);
+
+    if (!error) {
+      setBookmarks((prev) =>
+        prev.map((b) =>
+          b.id === id ? { ...b, title: editTitle, url: editUrl } : b
+        )
+      );
+      setEditingId(null);
+    }
   };
 
   // 🚪 Logout
@@ -142,31 +167,11 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Dashboard Content */}
+        {/* Content */}
         <div className="p-8">
           <h1 className="text-3xl font-bold mb-8 text-slate-800">
             Welcome Back 👋
           </h1>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-2xl shadow-lg border">
-              <h2 className="text-sm text-slate-500">Total Bookmarks</h2>
-              <p className="text-3xl mt-3 font-bold text-indigo-600">
-                {bookmarks.length}
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-lg border">
-              <h2 className="text-sm text-slate-500">Categories</h2>
-              <p className="text-3xl mt-3 font-bold text-green-600">—</p>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-lg border">
-              <h2 className="text-sm text-slate-500">Saved This Week</h2>
-              <p className="text-3xl mt-3 font-bold text-purple-600">—</p>
-            </div>
-          </div>
 
           {/* Bookmarks */}
           <div className="mt-12 bg-white p-6 rounded-2xl shadow-lg border">
@@ -199,24 +204,62 @@ export default function DashboardPage() {
               {bookmarks.map((b) => (
                 <li
                   key={b.id}
-                  className="flex justify-between items-center border p-3 rounded-lg"
+                  className="border p-3 rounded-lg"
                 >
-                  <a
-                    href={b.url}
-                    target="_blank"
-                    className="text-indigo-600 underline"
-                  >
-                    {b.title}
-                  </a>
-                  <button
-                    onClick={() => deleteBookmark(b.id)}
-                    className="px-3 py-1 text-sm font-medium text-red-600
-                               border border-red-300 rounded-lg
-                               hover:bg-red-50 hover:border-red-500
-                               transition"
-                  >
-                    Delete
-                  </button>
+                  {editingId === b.id ? (
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 border p-2 rounded"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                      />
+                      <input
+                        className="flex-1 border p-2 rounded"
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                      />
+                      <button
+                        onClick={() => updateBookmark(b.id)}
+                        className="bg-green-600 text-white px-3 rounded"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="bg-gray-400 text-white px-3 rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <a
+                        href={b.url}
+                        target="_blank"
+                        className="text-indigo-600 underline"
+                      >
+                        {b.title}
+                      </a>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setEditingId(b.id);
+                            setEditTitle(b.title);
+                            setEditUrl(b.url);
+                          }}
+                          className="px-3 py-1 text-sm border rounded-lg"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteBookmark(b.id)}
+                          className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
